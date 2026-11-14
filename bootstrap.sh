@@ -33,9 +33,17 @@ log() { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] $*" | tee -a "$LOG"; }
 
 # --- 1. SSH entry point ----------------------------------------------------
 mkdir -p /run/sshd /root/.ssh
+# The openssh package does NOT generate host keys at install time (the old
+# spec ran ssh-keygen -A at boot for exactly this reason). Idempotent: any
+# existing keys are kept. Keys regenerate on each container recreation —
+# same behavior as the old spec (clear stale known_hosts before SSH).
+ssh-keygen -A
 curl -fsS "$FLUX_KEY_URL" | tr -d '"' > /root/.ssh/authorized_keys
 chmod 600 /root/.ssh/authorized_keys
-/usr/sbin/sshd -E /data/sshd.log
+if ! /usr/sbin/sshd -E /data/sshd.log; then
+  log "ERROR: sshd failed to start — see /data/sshd.log"
+  exit 1
+fi
 log "sshd started"
 
 # Materialize the canonical start script (idempotent: a file restored from

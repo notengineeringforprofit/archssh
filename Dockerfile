@@ -53,8 +53,10 @@
 #     → expect: sshd starts, bootstrap waits for Filen auth, no crash loop
 #
 # bootstrap.sh:
-#   1. install the Flux-managed SSH key (public on-chain; same line as the
-#      original archssh spec) and start sshd
+#   1. generate SSH host keys (openssh package doesn't — the old spec ran
+#      ssh-keygen -A at boot), install the Flux-managed SSH key (public
+#      on-chain; same line as the original archssh spec), start sshd
+#      (exit 1 if it fails — Flux restart ladder retries)
 #   2. if /data/state/bb/bb.db exists: exec /data/start-bb.sh
 #      (recreation case — /data survived, nothing to restore)
 #   3. otherwise: wait for /data/filen-cli/filen-cli-auth-config.txt
