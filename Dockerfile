@@ -57,9 +57,13 @@
 #      ssh-keygen -A at boot), install the Flux-managed SSH key (public
 #      on-chain; same line as the original archssh spec), start sshd
 #      (exit 1 if it fails — Flux restart ladder retries)
-#   2. if /data/state/bb/bb.db exists: exec /data/start-bb.sh
+#   2. materialize the known-tool scripts (idempotent): /data/start-bb.sh
+#      and /data/filen-cli/backup-once.sh. The latter lives in /data/filen-cli,
+#      which is NOT in the Filen backup (deploy-time layer) — so a fresh
+#      restore would otherwise leave the box without its backup tool.
+#   3. if /data/state/bb/bb.db exists: exec /data/start-bb.sh
 #      (recreation case — /data survived, nothing to restore)
-#   3. otherwise: wait for /data/filen-cli/filen-cli-auth-config.txt
+#   4. otherwise: wait for /data/filen-cli/filen-cli-auth-config.txt
 #      (phone injects it over SSH), pull backup/ pi/ plugins/ from Filen,
 #      `bb server import` the archive, `bb server allow-connect`, then
 #      exec /data/start-bb.sh
@@ -136,8 +140,13 @@ RUN set -eux \
     && /root/.filen-cli/bin/filen --version
 
 # ---------------------------------------------------------------- scripts
-COPY start-bb.sh  /usr/local/start-bb.sh
-COPY bootstrap.sh /usr/local/bootstrap.sh
-RUN chmod +x /usr/local/start-bb.sh /usr/local/bootstrap.sh
+# start-bb.sh:        the bb server launcher (bootstrap materializes to /data)
+# backup-once.sh:     the manual Filen backup (bootstrap materializes to
+#                     /data/filen-cli — a known tool, not user data)
+# bootstrap.sh:       the entrypoint (runs as PID 1 on every new container)
+COPY start-bb.sh    /usr/local/start-bb.sh
+COPY backup-once.sh /usr/local/backup-once.sh
+COPY bootstrap.sh   /usr/local/bootstrap.sh
+RUN chmod +x /usr/local/start-bb.sh /usr/local/backup-once.sh /usr/local/bootstrap.sh
 
 ENTRYPOINT ["/usr/local/bootstrap.sh"]

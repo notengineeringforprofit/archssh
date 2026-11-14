@@ -5,9 +5,13 @@
 #   1. Installs the Flux-managed SSH key (public on-chain; the same line the
 #      original archssh spec used) and starts sshd, so the phone can reach
 #      the box on any new node from the first boot.
-#   2. If /data/state/bb/bb.db exists: /data survived (hard reset /
+#   2. Materializes the known-tool scripts (idempotent): /data/start-bb.sh and
+#      /data/filen-cli/backup-once.sh. The backup script lives in /data/filen-cli,
+#      which is NOT in the Filen backup (deploy-time layer), so a fresh restore
+#      would otherwise leave the box without its backup tool.
+#   3. If /data/state/bb/bb.db exists: /data survived (hard reset /
 #      redeploy). Just start the server.
-#   3. Otherwise: /data is fresh (new node). Wait for the phone to inject
+#   4. Otherwise: /data is fresh (new node). Wait for the phone to inject
 #      the Filen auth config over SSH, restore state from Filen, import the
 #      bb server archive, and start.
 #
@@ -50,6 +54,16 @@ log "sshd started"
 # Filen or written on a previous boot wins).
 if [ ! -f /data/start-bb.sh ]; then
   install -m 755 /usr/local/start-bb.sh /data/start-bb.sh
+fi
+
+# Materialize the Filen backup script (idempotent). /data/filen-cli is the
+# deploy-time layer — it is NOT in the Filen backup, so after a fresh restore
+# the box would have the auth (phone-injected) but no backup tool. Baking it
+# into the image and materializing it here means the box can always back up.
+# A file already present (e.g. /data survived) wins.
+mkdir -p /data/filen-cli
+if [ ! -f /data/filen-cli/backup-once.sh ]; then
+  install -m 755 /usr/local/backup-once.sh /data/filen-cli/backup-once.sh
 fi
 
 # --- 2. /data survived ------------------------------------------------------
